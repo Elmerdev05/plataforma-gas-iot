@@ -1,26 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- Bases --- */
+  --background: #f8fafc; 
+  --foreground: #0f172a; 
+
+  /* --- AZULES (Identidad / Seguro) --- */
+  --brand-50:  #eff6ff; 
+  --brand-100: #dbeafe; 
+  --brand-500: #3b82f6; 
+  --brand-600: #2563eb; 
+  --brand-900: #1e3a8a; 
+
+  /* --- ROJOS (Peligro) --- */
+  --danger-bg: #fef2f2;
+  --danger:    #ef4444;
+
+  /* --- VERDES (Éxito) --- */
+  --success-bg: #f0fdf4;
+  --success:    #22c55e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-50:  var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-900: var(--brand-900);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger:    var(--danger);
+  --color-success-bg: var(--success-bg);
+  --color-success:    var(--success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
