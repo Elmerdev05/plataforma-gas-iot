@@ -8,11 +8,11 @@ const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
 const TOPIC = "gasalert/sensores/cocina";
 
 const sensorFalso = {
-  id: "sensor_001",
-  ubicacion: "Cocina Principal",
-  nivel: 100,
-  estado: "seguro",
-  bateria: 100,
+  id: "SENSOR_FANTASMA_02", // <--- CAMBIAMOS ESTO (Inventamos un ID)
+  ubicacion: "Soy Falso",   // Esto no importa, el nombre lo pone la base de datos
+  nivel: 500,               // Pongámosle peligro para que se note
+  estado: "peligro",
+  bateria: 50
 };
 
 client.on("connect", () => {

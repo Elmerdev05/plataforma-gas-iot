@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import mqtt from "mqtt";
 
-// Usaremos un Broker Público para pruebas (luego pondremos el privado)
-// Protocolo: wss (WebSocket Secure) porque estamos en web
+
 const MQTT_BROKER = "wss://broker.emqx.io:8084/mqtt";
 const TOPIC_BASE = "gasalert/sensores"; // El tema base
 
@@ -32,34 +31,27 @@ export default function useMqtt() {
     });
 
     client.on("connect", () => {
-      console.log("✅ Conectado al Broker MQTT");
+      console.log(" Conectado al Broker MQTT");
       setStatus("Conectado");
 
-      // 2. Suscripción: Escuchamos TODO lo que venga de nuestros sensores
-      // El '#' es un comodín (wildcard) para escuchar cualquier subtema
       client.subscribe(`${TOPIC_BASE}/#`, (err) => {
         if (!err) console.log(`📡 Suscrito a ${TOPIC_BASE}/#`);
       });
     });
 
     client.on("message", (topic, message) => {
-      // 3. Recepción de mensajes
       try {
         const payload = JSON.parse(message.toString());
-        console.log("📩 Mensaje recibido:", payload);
+        console.log(" Mensaje recibido:", payload);
 
-        // Actualizamos el estado de los sensores
         setSensores((prev) => {
-          // Buscamos si el sensor ya existe en nuestra lista
           const index = prev.findIndex((s) => s.id === payload.id);
 
           if (index >= 0) {
-            // Si existe, lo actualizamos
             const newSensores = [...prev];
             newSensores[index] = { ...newSensores[index], ...payload };
             return newSensores;
           } else {
-            // Si es nuevo, lo agregamos
             return [...prev, payload];
           }
         });
@@ -73,7 +65,6 @@ export default function useMqtt() {
       setStatus("Desconectado");
     });
 
-    // Cleanup: Desconectar al cerrar la página
     return () => {
       if (client) client.end();
     };
