@@ -20,28 +20,33 @@ export default function DashboardPage() {
   const { sensores, status } = useMqtt();
   const [misDispositivos, setMisDispositivos] = useState<DispositivoGuardado[]>([]);
   const [cargandoDB, setCargandoDB] = useState(true);
-  const [sonidoActivo, setSonidoActivo] = useState(true);
   
-  // 1. REFERENCIA DE AUDIO (Para poder detenerlo)
+  // Preferencia de sonido
+  const [sonidoActivo, setSonidoActivo] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ultimoAviso = useRef<number>(0);
 
-  // 2. INICIALIZAR EL AUDIO UNA SOLA VEZ
+  // 1. CARGAR PREFERENCIA DE SONIDO
   useEffect(() => {
-    // Creamos la instancia de audio y la guardamos en la referencia
+    const preferenciaSilencio = localStorage.getItem("gasalert_silencio");
+    if (preferenciaSilencio === "true") {
+      setSonidoActivo(false);
+    }
     audioRef.current = new Audio("/alarm.mp3");
   }, []);
 
-  // 3. DETENER EL AUDIO SI SE DESACTIVA EL SONIDO
+  // 2. GESTIONAR AUDIO
   useEffect(() => {
     if (!sonidoActivo && audioRef.current) {
-      audioRef.current.pause();      // Pausar
-      audioRef.current.currentTime = 0; // Reiniciar al principio
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      localStorage.setItem("gasalert_silencio", "true");
+    } else {
+      localStorage.removeItem("gasalert_silencio");
     }
   }, [sonidoActivo]);
 
-
-  // 4. LOGICA DE SEGURIDAD Y CARGA
+  // 3. CARGAR DISPOSITIVOS DEL USUARIO
   useEffect(() => {
     const usuarioString = localStorage.getItem("usuario_gasalert");
 
@@ -73,50 +78,71 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // 5. EFECTO DE ALARMAS
+  // 4. LÓGICA DE ALARMAS E HISTORIAL (CORREGIDO)
   useEffect(() => {
-    const sensorPeligroso = sensores.find((s) => s.nivel > 400);
+    // Buscamos si hay algún sensor con nivel peligroso
+    const sensorPeligrosoRaw = sensores.find((s) => s.nivel > 400);
 
-    if (sensorPeligroso) {
+    if (sensorPeligrosoRaw) {
       const ahora = Date.now();
       const tiempoPasado = ahora - ultimoAviso.current;
 
-      if (tiempoPasado > 60000) { // Cada 60 segundos
+      // Ejecutar solo si han pasado 60 segundos desde la última alerta
+      if (tiempoPasado > 60000) { 
         
-        // REPRODUCIR SONIDO USANDO LA REFERENCIA
+        // CORRECCIÓN IMPORTANTE: 
+        // Buscamos el nombre real del sensor en 'misDispositivos' usando la MAC Address
+        const infoSensor = misDispositivos.find(d => d.macAddress === sensorPeligrosoRaw.id);
+        const nombreUbicacion = infoSensor?.nombre || "Sensor Desconocido";
+
+        // A) SONIDO
         if (sonidoActivo && audioRef.current) {
           audioRef.current.play().catch((e) => console.log("Audio bloqueado:", e));
         }
 
+        // B) NOTIFICACIÓN NAVEGADOR
         if (Notification.permission === "granted") {
           new Notification("¡PELIGRO DE GAS!", {
-            body: `Nivel crítico en: ${sensorPeligroso.ubicacion}`,
+            body: `Nivel crítico en: ${nombreUbicacion}`,
             icon: "/gasalert-logo.png",
           });
         }
 
         const usuarioString = localStorage.getItem("usuario_gasalert");
-        const emailDestino = usuarioString
-          ? JSON.parse(usuarioString).email
-          : null;
+        const usuario = usuarioString ? JSON.parse(usuarioString) : null;
 
-        if (emailDestino) {
-             fetch("/api/alerta-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                sensor: sensorPeligroso.ubicacion,
-                valor: sensorPeligroso.nivel,
-                emailDestino: emailDestino,
-            }),
+        if (usuario) {
+            // C) ENVIAR EMAIL
+            fetch("/api/alerta-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sensor: nombreUbicacion, // Usamos el nombre corregido
+                    valor: sensorPeligrosoRaw.nivel,
+                    emailDestino: usuario.email,
+                }),
             }).catch((err) => console.error("Error enviando email:", err));
+
+            // D) GUARDAR EN HISTORIAL (CONECTADO A LA DB)
+            fetch("/api/historial", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    usuarioId: usuario._id,
+                    sensor: nombreUbicacion, // Usamos el nombre corregido
+                    nivel: sensorPeligrosoRaw.nivel,
+                }),
+            }).then(() => console.log("Alerta guardada en historial"))
+              .catch((err) => console.error("Error guardando historial:", err));
         }
 
         ultimoAviso.current = ahora;
       }
     }
-  }, [sensores, sonidoActivo]); // Dependencias
+    // Agregamos misDispositivos a las dependencias para que el nombre se actualice si cambia
+  }, [sensores, sonidoActivo, misDispositivos]); 
 
+  // Mapeo para visualización (cards)
   const sensoresVisibles = sensores
     .filter((mqttSensor) =>
       misDispositivos.some((dbSensor) => dbSensor.macAddress === mqttSensor.id)
