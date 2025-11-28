@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // <--- IMPORTANTE: Agregado para redirección
+import { useRouter } from "next/navigation";
 import { Plus, Cloud, CloudOff, Volume2, VolumeX } from "lucide-react";
 import SensorCard from "@/components/dashboard/SensorCard";
 import FadeIn from "@/components/ui/FadeIn";
@@ -16,25 +16,40 @@ interface DispositivoGuardado {
 }
 
 export default function DashboardPage() {
-  const router = useRouter(); // <--- Inicializamos el router
+  const router = useRouter();
   const { sensores, status } = useMqtt();
   const [misDispositivos, setMisDispositivos] = useState<DispositivoGuardado[]>([]);
   const [cargandoDB, setCargandoDB] = useState(true);
   const [sonidoActivo, setSonidoActivo] = useState(true);
+  
+  // 1. REFERENCIA DE AUDIO (Para poder detenerlo)
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const ultimoAviso = useRef<number>(0);
 
-  // 1. EFECTO DE SEGURIDAD Y CARGA DE DATOS
+  // 2. INICIALIZAR EL AUDIO UNA SOLA VEZ
   useEffect(() => {
-    // Verificamos si hay usuario en localStorage
+    // Creamos la instancia de audio y la guardamos en la referencia
+    audioRef.current = new Audio("/alarm.mp3");
+  }, []);
+
+  // 3. DETENER EL AUDIO SI SE DESACTIVA EL SONIDO
+  useEffect(() => {
+    if (!sonidoActivo && audioRef.current) {
+      audioRef.current.pause();      // Pausar
+      audioRef.current.currentTime = 0; // Reiniciar al principio
+    }
+  }, [sonidoActivo]);
+
+
+  // 4. LOGICA DE SEGURIDAD Y CARGA
+  useEffect(() => {
     const usuarioString = localStorage.getItem("usuario_gasalert");
 
-    // SI NO HAY USUARIO -> AL LOGIN
     if (!usuarioString) {
       router.push("/");
       return;
     }
 
-    // SI HAY USUARIO -> CARGAMOS DATOS
     const usuario = JSON.parse(usuarioString);
 
     const cargarSensoresCloud = async () => {
@@ -53,13 +68,12 @@ export default function DashboardPage() {
 
     cargarSensoresCloud();
 
-    // Permisos de notificación
     if (typeof window !== "undefined" && Notification.permission !== "granted") {
       Notification.requestPermission();
     }
-  }, [router]); // Agregamos router a las dependencias
+  }, [router]);
 
-  // 2. EFECTO DE ALARMAS (Igual que antes)
+  // 5. EFECTO DE ALARMAS
   useEffect(() => {
     const sensorPeligroso = sensores.find((s) => s.nivel > 400);
 
@@ -67,10 +81,11 @@ export default function DashboardPage() {
       const ahora = Date.now();
       const tiempoPasado = ahora - ultimoAviso.current;
 
-      if (tiempoPasado > 60000) {
-        if (sonidoActivo) {
-          const audio = new Audio("/alarm.mp3");
-          audio.play().catch((e) => console.log("Audio bloqueado:", e));
+      if (tiempoPasado > 60000) { // Cada 60 segundos
+        
+        // REPRODUCIR SONIDO USANDO LA REFERENCIA
+        if (sonidoActivo && audioRef.current) {
+          audioRef.current.play().catch((e) => console.log("Audio bloqueado:", e));
         }
 
         if (Notification.permission === "granted") {
@@ -100,7 +115,7 @@ export default function DashboardPage() {
         ultimoAviso.current = ahora;
       }
     }
-  }, [sensores, sonidoActivo]);
+  }, [sensores, sonidoActivo]); // Dependencias
 
   const sensoresVisibles = sensores
     .filter((mqttSensor) =>
