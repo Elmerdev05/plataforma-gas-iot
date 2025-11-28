@@ -66,7 +66,7 @@ export default function Header() {
         <div className="flex items-center gap-3 pl-3 border-l border-slate-100">
           <div className="text-right hidden md:block">
             <p className="text-sm font-bold text-slate-700">{usuario.nombre}</p>
-            <p className="text-xs text-slate-400">Admin</p>
+          
           </div>
 
           <button
