@@ -9,7 +9,7 @@ const menuItems = [
   { name: "Panel", href: "/dashboard", icon: LayoutDashboard },
   { name: "Equipos", href: "/dashboard/dispositivos", icon: Thermometer }, // Nombre corto ideal para móvil
   { name: "Historial", href: "/dashboard/historial", icon: History },      // ✅ Ya estaba incluido, lo mantenemos
-  { name: "Ajustes", href: "/dashboard/ajustes", icon: Settings },
+  ///{ name: "Ajustes", href: "/dashboard/ajustes", icon: Settings },
 ];
 
 export default function MobileNav() {

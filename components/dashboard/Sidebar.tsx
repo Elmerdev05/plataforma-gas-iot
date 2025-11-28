@@ -11,7 +11,7 @@ const menuItems = [
   { name: "Panel Principal", href: "/dashboard", icon: LayoutDashboard },
   { name: "Dispositivos", href: "/dashboard/dispositivos", icon: Thermometer },
   { name: "Historial", href: "/dashboard/historial", icon: History }, // ✅ Módulo integrado correctamente
-  { name: "Ajustes", href: "/dashboard/ajustes", icon: Settings },
+  
 ];
 
 export default function Sidebar() {
