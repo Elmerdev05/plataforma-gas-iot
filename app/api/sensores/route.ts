@@ -1,61 +1,78 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
-import Sensor from "@/models/Sensor";
+import Sensor from "@/models/Sensor"; // Asegúrate de tener este modelo creado
 
 export async function POST(request: Request) {
   try {
     await connectDB();
+    
+    // 1. Recibimos los datos, INCLUYENDO el userId
+    const { macAddress, nombre, userId } = await request.json();
 
-    const data = await request.json();
-    const { macAddress, nombre } = data;
-
+    // 2. Validaciones básicas
     if (!macAddress || !nombre) {
       return NextResponse.json(
-        { error: "Faltan datos (MAC o Nombre)" },
+        { message: "Faltan datos (Mac Address o Nombre)" },
         { status: 400 }
       );
     }
 
-    const sensorExistente = await Sensor.findOne({ macAddress });
-    if (sensorExistente) {
+    if (!userId) {
       return NextResponse.json(
-        { error: "¡Este sensor ya está registrado en el sistema!" },
-        { status: 409 }
+        { message: "No se identificó al usuario propietario" },
+        { status: 400 }
       );
     }
 
-    const nuevoSensor = new Sensor({
+    // 3. Verificar si ese sensor ya existe (opcional, para evitar duplicados)
+    const sensorExistente = await Sensor.findOne({ macAddress });
+    if (sensorExistente) {
+      return NextResponse.json(
+        { message: "Este sensor ya está registrado en el sistema" },
+        { status: 400 }
+      );
+    }
+
+    // 4. Crear el sensor vinculado al usuario
+    const nuevoSensor = await Sensor.create({
       macAddress,
       nombre,
-      usuarioId: "usuario_demo",
+      usuarioId: userId, // Guardamos la referencia al usuario
+      // Si tu modelo usa 'usuario' en vez de 'usuarioId', cámbialo aquí
     });
 
-    await nuevoSensor.save();
+    return NextResponse.json(nuevoSensor, { status: 201 });
 
-    console.log(" Sensor guardado en Nube:", nombre);
-
+  } catch (error) {
+    console.error("Error al crear sensor:", error);
     return NextResponse.json(
-      { message: "Sensor vinculado correctamente", sensor: nuevoSensor },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("❌ Error al guardar sensor:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { message: "Error interno del servidor" },
       { status: 500 }
     );
   }
 }
 
-export async function GET() {
+// También necesitamos el GET para que el Dashboard cargue los sensores
+export async function GET(request: Request) {
   try {
     await connectDB();
-    const sensores = await Sensor.find({ usuarioId: "usuario_demo" });
+
+    // Obtener el userId de la URL (ej: /api/sensores?userId=123...)
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json([], { status: 400 });
+    }
+
+    // Buscar solo los sensores de ese usuario
+    const sensores = await Sensor.find({ usuarioId: userId });
 
     return NextResponse.json(sensores);
   } catch (error) {
+    console.error(error);
     return NextResponse.json(
-      { error: "Error al cargar sensores" },
+      { message: "Error al obtener sensores" },
       { status: 500 }
     );
   }

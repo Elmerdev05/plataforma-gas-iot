@@ -14,6 +14,19 @@ export default function AgregarSensorPagina() {
   const handleVincular = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 1. OBTENER EL USUARIO DEL LOCALSTORAGE
+    const usuarioString = localStorage.getItem("usuario_gasalert");
+
+    if (!usuarioString) {
+      alert(
+        "No se encontró sesión activa. Por favor inicia sesión nuevamente."
+      );
+      router.push("/");
+      return;
+    }
+
+    const usuario = JSON.parse(usuarioString);
+
     try {
       const respuesta = await fetch("/api/sensores", {
         method: "POST",
@@ -23,13 +36,15 @@ export default function AgregarSensorPagina() {
         body: JSON.stringify({
           macAddress: serialId,
           nombre: nombre,
+          userId: usuario._id, // <--- ¡ESTO ES LO QUE FALTABA!
         }),
       });
 
       const datos = await respuesta.json();
 
       if (!respuesta.ok) {
-        alert(datos.error || "Ocurrió un error");
+        // Muestra el mensaje específico del error que viene del backend
+        alert(datos.message || datos.error || "Error al guardar el sensor");
         return;
       }
 
@@ -73,7 +88,7 @@ export default function AgregarSensorPagina() {
             <div className="bg-slate-50 p-4 rounded-xl text-sm text-slate-600 space-y-2 border border-slate-200">
               <p>1. Enchufa tu sensor GasAlert.</p>
               <p>
-                2. Busca la red WiFi <strong>"GasAlert_Setup"</strong> en tu
+                2. Busca la red WiFi <strong>GasAlert_Setup</strong> en tu
                 celular.
               </p>
               <p>
