@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // <--- IMPORTANTE: Agregado para redirección
 import { Plus, Cloud, CloudOff, Volume2, VolumeX } from "lucide-react";
 import SensorCard from "@/components/dashboard/SensorCard";
 import FadeIn from "@/components/ui/FadeIn";
@@ -15,20 +16,28 @@ interface DispositivoGuardado {
 }
 
 export default function DashboardPage() {
+  const router = useRouter(); // <--- Inicializamos el router
   const { sensores, status } = useMqtt();
-  const [misDispositivos, setMisDispositivos] = useState<DispositivoGuardado[]>(
-    []
-  );
+  const [misDispositivos, setMisDispositivos] = useState<DispositivoGuardado[]>([]);
   const [cargandoDB, setCargandoDB] = useState(true);
   const [sonidoActivo, setSonidoActivo] = useState(true);
   const ultimoAviso = useRef<number>(0);
 
+  // 1. EFECTO DE SEGURIDAD Y CARGA DE DATOS
   useEffect(() => {
-    const cargarSensoresCloud = async () => {
-      const usuarioString = localStorage.getItem("usuario_gasalert");
-      if (!usuarioString) return;
-      const usuario = JSON.parse(usuarioString);
+    // Verificamos si hay usuario en localStorage
+    const usuarioString = localStorage.getItem("usuario_gasalert");
 
+    // SI NO HAY USUARIO -> AL LOGIN
+    if (!usuarioString) {
+      router.push("/");
+      return;
+    }
+
+    // SI HAY USUARIO -> CARGAMOS DATOS
+    const usuario = JSON.parse(usuarioString);
+
+    const cargarSensoresCloud = async () => {
       try {
         const res = await fetch(`/api/sensores?userId=${usuario._id}`);
         if (res.ok) {
@@ -44,14 +53,13 @@ export default function DashboardPage() {
 
     cargarSensoresCloud();
 
-    if (
-      typeof window !== "undefined" &&
-      Notification.permission !== "granted"
-    ) {
+    // Permisos de notificación
+    if (typeof window !== "undefined" && Notification.permission !== "granted") {
       Notification.requestPermission();
     }
-  }, []);
+  }, [router]); // Agregamos router a las dependencias
 
+  // 2. EFECTO DE ALARMAS (Igual que antes)
   useEffect(() => {
     const sensorPeligroso = sensores.find((s) => s.nivel > 400);
 
@@ -77,15 +85,17 @@ export default function DashboardPage() {
           ? JSON.parse(usuarioString).email
           : null;
 
-        fetch("/api/alerta-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sensor: sensorPeligroso.ubicacion,
-            valor: sensorPeligroso.nivel,
-            emailDestino: emailDestino,
-          }),
-        }).catch((err) => console.error("Error enviando email:", err));
+        if (emailDestino) {
+             fetch("/api/alerta-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sensor: sensorPeligroso.ubicacion,
+                valor: sensorPeligroso.nivel,
+                emailDestino: emailDestino,
+            }),
+            }).catch((err) => console.error("Error enviando email:", err));
+        }
 
         ultimoAviso.current = ahora;
       }
